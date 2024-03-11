@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Dashboard</h2>
+                 <!-- Sidebar toggle button for mobile view -->
+                 <button id="sidebar-toggle">☰</button>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="{{ url_for('quiz') }}">Quiz Generator</a></li>
+                <li><a href="{{ url_for('quiz') }}">Quiz Card Generator</a></li>
+                <li><a href="{{ url_for('knowledge_graph') }}">Knowledge Graph</a></li>
+                <li><a href="{{ url_for('summarization') }}">Summarization Tool</a></li>
+            </ul>
+        </nav>
+        <div class="main-content">
+            <header class="dashboard-header">
+                <h1>Welcome to the Dashboard, Leo!</h1>
+                <div class="user-info">
+                    <img src="{{ url_for('static', filename='images/messi.jpg') }}" alt="User Avatar" class="user-avatar">
+                    <span class="user-name">Leo Messi</span>
+                </div>
+            </header>
+            <div class="dashboard-cards">
+                <div class="card">
+                    <div class="card-title">Quizzes Taken</div>
+                    <div class="card-value">34</div>
+                    <div class="card-detail">Check history</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Knowledge Graphs</div>
+                    <div class="card-value">12</div>
+                    <div class="card-detail">View all</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Summarizations Made</div>
+                    <div class="card-value">27</div>
+                    <div class="card-detail">Review summaries</div>
+                </div>
+            </div>
+            <div class="content" id="appContent">
+                <!-- App content will be loaded here -->
+                <div class="activity-log">
+                    <h2>Latest Activities</h2>
+                    <ul class="activity-list">
+                        <li>User 'JaneDoe92' completed 'Advanced Math Quiz'</li>
+                        <li>User 'Mark47' created a new knowledge graph</li>
+                        <!-- More list items -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Back to top button -->
+    <button id="back-to-top" aria-label="Back to top">↑</button>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

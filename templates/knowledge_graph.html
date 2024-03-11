@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Graph Visualization</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: #ddd; /* Dark background for the whole page */
+            color: #fff;
+        }
+
+        .container {
+            display: flex;
+            height: 100%;
+        }
+
+        .sidebar {
+            width: 250px; /* Fixed sidebar width */
+            background-color: #343a40; /* Sidebar distinct background color */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            font-size: 20px; /* Larger font size for header */
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            max-height: calc(100vh - 100px); /* Adjust height for sidebar content */
+        }
+
+        .history-list li {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+        }
+
+        .history-list li:hover {
+            background: #333;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Align content between */
+            background: #ddd; /* Main content background matching the body */
+        }
+
+        .graph-container {
+            flex-grow: 1;
+            padding: 20px;
+            background: #ddd; /* Matching background color for consistency */
+        }
+
+        .text-form {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #ddd; /* Text form distinct background color */
+        }
+
+        #textInput {
+            flex-grow: 1;
+            background: #ddd; /* Text input distinct background color */
+            border: 1px solid #333;
+            color: #000000;
+            padding: 10px 15px;
+            margin-right: 10px;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #007bff; /* Button distinct background color */
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background: #2e3bc3;
+        }
+
+        .svg-container {
+            display: block;
+            width: calc(100% - 40px); /* Adjust width considering padding */
+            height: calc(100vh - 70px - 40px); /* Adjust height considering padding and text form */
+            margin: 20px; /* Margin to prevent touch with the edges of the screen */
+            background: #ddd; /* SVG background matching the body for consistency */
+            border: 2px solid #555; /* Subtle border for the SVG container */
+            box-sizing: border-box; /* Include border in the element's total width and height */
+        }
+
+
+        svg {
+            display: block;
+            width: 100%;
+            height: calc(100vh - 70px); /* SVG height adjusted to fill remaining space */
+            background: #ddd; /* SVG background matching the body for consistency */
+            border: 2px solid #ddd; /* Subtle border for the SVG container */
+            box-sizing: border-box; /* Include border in the element's total width and height */
+        }
+
+        .loading-spinner {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .loading-spinner::after {
+            content: '';
+            display: block;
+            width: 50px;
+            height: 50px;
+            margin: 8px;
+            border-radius: 50%;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .node {
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+        }
+
+        .home-link {
+            display: block;
+            text-align: left;
+            margin-bottom: 20px; /* Provide some space below the link */
+            padding: 10px 20px;
+            font-size: 18px; /* Slightly larger text for the home link */
+            color: #ddd; /* Light color text */
+            background-color: #2c3e50; /* A darker background color to stand out */
+            text-decoration: none; /* Remove underline from the link */
+            border-radius: 4px; /* Rounded corners for aesthetics */
+        }
+
+        .home-link:hover {
+            background-color: #34495e; /* Change color slightly on hover */
+            color: #fff; /* Change text color on hover for better visibility */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <a href="/" class="home-link">Return to Home</a> <!-- Home link -->
+            <div class="sidebar-header">
+                <h1>Knowledge Graph History</h1>
+            </div>
+            <!-- Populate this list with history items -->
+            <ul class="history-list">
+                <!-- History items will go here -->
+            </ul>
+        </aside>
+        <main class="main-content">
+            <svg></svg>
+            <div id="graph" class="graph-container">
+                <!-- Loading Spinner -->
+                <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                    <!-- Spinner content here (e.g., an animated GIF or CSS animation) -->
+                </div>
+
+                <form id="textForm" class="text-form">
+                    <textarea id="textInput" required placeholder="Enter text to generate graph..."></textarea>
+                    <button type="submit">Generate</button>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+
+    <script>
+        const svg = d3.select("svg")
+            .attr("viewBox", "0 0 800 600")
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .call(d3.zoom().on("zoom", (event) => {
+                svg.attr("transform", event.transform);
+            }))
+            .append("g");
+
+        const width = 800, height = 600, radius = 5;
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+        function showSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'block';
+        }
+
+        function hideSpinner() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+
+        d3.select("#textForm").on("submit", function(event) {
+        event.preventDefault();
+        const text = document.getElementById("textInput").value.trim();
+
+        if (!text) {
+            alert('Please enter some text to generate the graph.');
+            return;
+        }
+
+        showSpinner();
+        // First, identify the topic
+        fetch('/identify-topic', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(handleResponse)
+        .then(topicData => {
+            if (!topicData.topic) {
+                throw new Error('Topic could not be identified');
+            }
+            const topic = topicData.topic;
+            // Now, generate the graph
+            return fetch('/graph-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'text=' + encodeURIComponent(text)
+            })
+            .then(handleResponse)
+            .then(graphData => {
+                // Combine graph data and topic into one object
+                return { graphData, topic };
+            });
+        })
+        .then(result => {
+            // Save the graph with the topic
+            return fetch('/save_graph', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ data: result.graphData, topic: result.topic })
+            })
+            .then(handleResponse)
+        })
+        .then(savedGraph => {
+            hideSpinner();
+            addGraphToSidebar(savedGraph);
+        })
+        .catch(error => {
+            hideSpinner();
+            console.error('Error:', error);
+            alert('An error occurred: ' + error.message);
+        });
+    });
+
+    function handleResponse(response) {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.statusText);
+        }
+        return response.json();
+    }
+
+    function addGraphToSidebar(savedGraph) {
+        if (savedGraph.id && savedGraph.topic) {
+            const historyList = document.querySelector('.history-list');
+            const listItem = document.createElement('li');
+            listItem.textContent = savedGraph.topic; // Display the new topic
+            listItem.onclick = () => displayGraph(savedGraph.id); // Add click event to load this graph
+            historyList.appendChild(listItem);
+
+            // Optionally, immediately display the new graph
+            displayGraph(savedGraph.id);
+        } else {
+            // Handle any errors, such as topic already exists
+            alert('Error: ' + (savedGraph.error || 'Could not save the graph.'));
+        }
+    }
+
+
+
+
+        function updateGraph(graph) {
+            svg.selectAll("*").remove();
+
+            const links = svg.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(graph.links)
+                .enter().append("line")
+                .attr("stroke-width", 2)
+                .style("stroke", "#999");
+
+            const nodes = svg.append("g")
+                .attr("class", "nodes")
+                .selectAll("circle")
+                .data(graph.nodes)
+                .enter().append("circle")
+                .attr("r", radius)
+                .attr("fill", d => color(d.group));
+
+            const labels = svg.append("g")
+                .attr("class", "labels")
+                .selectAll("text")
+                .data(graph.nodes)
+                .enter().append("text")
+                .text(d => d.id)
+                .attr("x", 8)
+                .attr("y", 3);
+
+            const dragHandler = d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+
+            dragHandler(nodes);
+
+            const simulation = d3.forceSimulation(graph.nodes)
+                .force("link", d3.forceLink(graph.links).id(d => d.id))
+                .force("charge", d3.forceManyBody())
+                .force("center", d3.forceCenter(width / 2, height / 2));
+
+            simulation.nodes(graph.nodes).on("tick", ticked);
+            simulation.force("link").links(graph.links);
+
+            function ticked() {
+                links
+                    .attr("x1", d => d.source.x = Math.max(radius, Math.min(width - radius, d.source.x)))
+                    .attr("y1", d => d.source.y = Math.max(radius, Math.min(height - radius, d.source.y)))
+                    .attr("x2", d => d.target.x = Math.max(radius, Math.min(width - radius, d.target.x)))
+                    .attr("y2", d => d.target.y = Math.max(radius, Math.min(height - radius, d.target.y)));
+
+                nodes
+                    .attr("cx", d => d.x = Math.max(radius, Math.min(width - radius, d.x)))
+                    .attr("cy", d => d.y = Math.max(radius, Math.min(height - radius, d.y)));
+
+                labels
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y);
+            }
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        // DATABASE MANAGEMENT
+        // Function to load the knowledge graph history
+        // Call this function on page load to populate the history list
+        loadGraphHistory();
+
+        function loadGraphHistory() {
+            fetch('/api/graphs')
+                .then(response => response.json())
+                .then(graphs => {
+                    const historyList = document.querySelector('.history-list');
+                    historyList.innerHTML = ''; // Clear existing entries
+                    graphs.forEach(graph => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = graph.topic; // Display topics here
+                        listItem.onclick = () => displayGraph(graph.id); // Load the graph by ID
+                        historyList.appendChild(listItem);
+                    });
+                });
+        }
+
+        function displayGraph(graphId) {
+            fetch(`/api/graph/${graphId}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateGraph(data.data); // Assuming data contains a 'data' key with graph data
+                })
+                .catch(error => console.error('Error loading graph:', error));
+        }
+
+
+        // Function to load a graph into the SVG
+        function loadGraph(id) {
+            fetch(`/api/graph/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Assume 'updateGraph' is a function that renders the graph into the SVG
+                    updateGraph(data);
+                })
+                .catch(error => console.error('Error loading graph:', error));
+        }
+    </script>
+</body>
+</html>
